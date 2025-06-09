@@ -14,6 +14,9 @@ This repo contains the training and testing code of SurgeoNet as described in ou
 
 We provide pretrained networks that can be directly used for inference. In addition, we provide the annotated synthetic data that were used for training along with real data that was captured by a Varjo XR headset for qualitative evaluation purposes. All models and data can be found on our [DFKI cloud](https://cloud.dfki.de/owncloud/index.php/s/YwtRc7MtLdzF8GR).
 
+Some sample data (Blender) we provide as well: https://drive.google.com/drive/folders/1Wa3tyU_eqMnQfGnN81kR1EcRtcS8Imwo?usp=drive_link
+
+
 ## Installation
 
 1) We recommend creating a virtual environment using conda
@@ -23,8 +26,17 @@ conda create --name surgeonet python=3.10
 conda activate surgeonet
 ```
 
+- 
+
+Alternatively use venv from python
+```
+python3 -m venv venv
+source venv/bin/active
+```
+
 2) Install Dependencies
 
+Windows with Nvidia Graphics:
 ```
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 pip install requirements.txt

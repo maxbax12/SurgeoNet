@@ -6,12 +6,15 @@ import time
 
 from ultralytics import YOLO
 from tqdm import tqdm
+import torch.serialization
+from ultralytics.nn.tasks import PoseModel
 from utils.preprocessor import Preprocessor
 from transformer.train_utils import get_mesh
 from utils.inference_utils import find_matches, Trackable, colors, visualize_meshes, init_outputs, fixer
 from utils.params import ParamGroup
 from utils.varjo_utils import read_ext
 from utils.mesh_utils import load_objects
+import ultralytics
 
 from utils.optimizer import PoseOptimizer, mpjpe
 
@@ -20,11 +23,35 @@ from transformer.transformer import Transformer
 
 import argparse
 
+# Register necessary globals
+torch.serialization.add_safe_globals([
+    PoseModel,
+    torch.nn.modules.container.Sequential,
+    torch.nn.modules.container.ModuleList,
+    torch.nn.modules.conv.Conv2d,
+    ultralytics.nn.modules.conv.Conv,
+    ultralytics.nn.modules.block.C2f,
+    ultralytics.nn.modules.block.Bottleneck,
+    ultralytics.nn.modules.block.SPPF,
+    ultralytics.nn.modules.conv.Concat,
+    ultralytics.nn.modules.head.Pose,
+    ultralytics.nn.modules.block.DFL,
+    torch.nn.modules.batchnorm.BatchNorm2d,
+    torch.nn.modules.activation.SiLU,
+    torch.nn.modules.pooling.MaxPool2d,
+    torch.nn.modules.upsampling.Upsample,
+    ultralytics.nn.modules.head.Detect,
+    ultralytics.utils.IterableSimpleNamespace,
+    ultralytics.utils.loss.v8PoseLoss,
+    torch.nn.modules.loss.BCEWithLogitsLoss,
+    ultralytics.utils.tal.TaskAlignedAssigner,
+    ultralytics.utils.loss.BboxLoss,
+    ultralytics.utils.loss.KeypointLoss,
+    getattr
+])
+
 def predict_sequence(args):
-    if 'cuda' in args.device and torch.cuda.is_available():
-        device = torch.device(args.device)
-    else:
-        device = torch.device('cpu')
+    device = torch.device('cpu')
 
     conf = args.conf
     num_kps = 12
@@ -50,7 +77,7 @@ def predict_sequence(args):
     if use_transformer:
         pose_estimator = Transformer(input_dim, hidden_dim, output_dim, num_layers, num_heads).to(device)
         pose_estimator.eval()
-        pose_estimator.load_state_dict(torch.load(f'transformer/transformer.pth'))
+        pose_estimator.load_state_dict(torch.load(f'transformer/transformer.pth', map_location=torch.device('cpu')))
 
     fix_kps = args.fix_kps
     reprojection_errors = []
@@ -253,6 +280,7 @@ def predict_sequence(args):
 
 
         out2d, out3d = get_mesh(m_labels, pred_pose, all_meshes, cam_ext, cam_int, device)
+        print('out2d:', out2d)
         sampling_indices = [all_meshes[m_label-1].sampledPoints for m_label in m_labels]
         errors = []
         if use_transformer:
@@ -299,10 +327,12 @@ def predict_sequence(args):
                     cv2.imwrite(f'output/{experiment_name}/{sequence_name}/yolo_{camera}/{frame_num}.jpg', yolo_plots[i])
             continue
         
-        if error < args.error_threshold and args.save:
-            visualize_meshes(out3d, out2d, all_meshes, m_labels, sequence_name, frame_num, 
-                            imagePair=[np.copy(image_pair['left']), np.copy(image_pair['right'])], 
-                            experiment_name=experiment_name, save_img=args.save, save_obj=args.save_objs)
+        print("Calling visualize_meshes with:")
+        print("3D Output:", out3d)
+        print("2D Output:", out2d)
+        visualize_meshes(out3d, out2d, all_meshes, m_labels, sequence_name, frame_num, 
+                        imagePair=[np.copy(image_pair['left']), np.copy(image_pair['right'])], 
+                        experiment_name=experiment_name, save_img=args.save, save_obj=args.save_objs)
 
         cv2.waitKey(1)  
 

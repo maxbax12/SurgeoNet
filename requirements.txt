@@ -5,3 +5,4 @@ OneEuroFilter==0.2.0
 matplotlib==3.8.1
 ultralytics==8.1.23
 pymeshlab==2022.2.post4
+opencv-python
